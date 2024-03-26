@@ -59,6 +59,10 @@ pub fn init_genesis<DB: Database>(factory: ProviderFactory<DB>) -> Result<B256, 
         Ok(Some(block_hash)) => {
             if block_hash == hash {
                 debug!("Genesis already written, skipping.");
+                let mut chain = factory.chain_spec();
+                let chain = Arc::make_mut(&mut chain);
+                chain.genesis.alloc.clear();
+                chain.genesis.alloc.shrink_to_fit();
                 return Ok(hash)
             }
 
@@ -100,10 +104,9 @@ pub fn insert_genesis_state<DB: Database>(
     tx: &<DB as Database>::TXMut,
     genesis: &reth_primitives::Genesis,
 ) -> ProviderResult<()> {
-    let capacity = genesis.alloc.len();
-    let mut state_init: BundleStateInit = HashMap::with_capacity(capacity);
-    let mut reverts_init = HashMap::with_capacity(capacity);
-    let mut contracts: HashMap<B256, Bytecode> = HashMap::with_capacity(capacity);
+    let mut state_init: BundleStateInit = HashMap::new();
+    let mut reverts_init = HashMap::new();
+    let mut contracts: HashMap<B256, Bytecode> = HashMap::new();
 
     for (address, account) in &genesis.alloc {
         let bytecode_hash = if let Some(code) = &account.code {
